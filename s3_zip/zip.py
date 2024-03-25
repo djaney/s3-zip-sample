@@ -54,7 +54,8 @@ def cli(**kwargs):
     # Get manifest
     try:
         click.echo("Reading manifest...")
-        manifest = bucket.Object(f"{folder_name}manifest.txt").get()['Body'].readlines()
+        manifest_obj = bucket.Object(f"{folder_name}manifest.txt")
+        manifest = manifest_obj.get()['Body'].readlines()
     except ClientError as e:
         if e.response['Error']['Code'] == "NoSuchKey":
             raise click.exceptions.BadParameter("given s3 directory does not contain manifest.txt")
@@ -63,6 +64,12 @@ def cli(**kwargs):
 
     # Crate zip file
     with zipfile.ZipFile(kwargs['output'], 'w', compression=zipfile.ZIP_DEFLATED) as package:
+
+        # zip manifest
+        with tempfile.NamedTemporaryFile("wb") as tmp:
+            click.echo(f"adding manifest to zip")
+            manifest_obj.download_fileobj(tmp)
+            package.write(tmp.name, manifest_obj.key)
 
         # Create iterator
         total_count = len(manifest)
